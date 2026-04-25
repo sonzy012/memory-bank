@@ -9,8 +9,9 @@ from memory_bank.ingest import SESSIONS_DIR, ingest_sessions
 
 
 def _db_path():
+    from memory_bank.db import DEFAULT_DB_PATH
     env = os.environ.get("MEMBANK_DB_PATH")
-    return Path(env) if env else None
+    return Path(env) if env else DEFAULT_DB_PATH
 
 
 @click.group()
@@ -69,6 +70,33 @@ def serve():
     """Start the MCP server for Kiro integration."""
     from memory_bank.mcp_server import mcp
     mcp.run()
+
+
+@cli.command()
+def stats():
+    """Show database statistics."""
+    from memory_bank.db import get_connection, DEFAULT_DB_PATH
+
+    db = _db_path() or DEFAULT_DB_PATH
+    if not db.exists():
+        click.echo(f"No database found at {db}. Run 'membank ingest' first.")
+        return
+    conn = get_connection(db)
+    s = conn.execute("SELECT COUNT(*) c FROM sessions").fetchone()["c"]
+    m = conn.execute("SELECT COUNT(*) c FROM messages").fetchone()["c"]
+    a = conn.execute("SELECT COUNT(*) c FROM artifacts").fetchone()["c"]
+    p = conn.execute("SELECT COUNT(*) c FROM projects").fetchone()["c"]
+    click.echo(f"Database: {db}")
+    click.echo(f"  Sessions:  {s}")
+    click.echo(f"  Messages:  {m}")
+    click.echo(f"  Artifacts: {a}")
+    click.echo(f"  Projects:  {p}")
+    click.echo()
+    for row in conn.execute("SELECT name, path, git_remote FROM projects"):
+        click.echo(f"  📁 {row['name']}: {row['path']}")
+        if row["git_remote"]:
+            click.echo(f"     remote: {row['git_remote']}")
+    conn.close()
 
 
 @cli.command()
