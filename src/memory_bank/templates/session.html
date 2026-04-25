@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}{{ session.title or session.id[:8] }} — Memory Bank{% endblock %}
+{% block content %}
+<h1>{{ session.title or "Untitled Session" }}</h1>
+<p>{{ session.cwd }} · {{ session.created_at }}</p>
+<div class="layout">
+  <div>
+    <h2>Messages</h2>
+    {% for m in messages %}
+    <div class="msg">
+      <div class="meta">#{{ m.sequence }} · {{ m.kind }}</div>
+      <pre>{{ m.content }}</pre>
+    </div>
+    {% endfor %}
+  </div>
+  <div>
+    <h2>Artifacts</h2>
+    <div class="sidebar">
+    {% if artifacts %}
+      {% for a in artifacts %}
+      <div><span class="badge badge-{{ a.type }}">{{ a.type }}</span> {{ a.value }}</div>
+      {% endfor %}
+    {% else %}
+      <p>No artifacts.</p>
+    {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

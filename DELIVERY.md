@@ -1,56 +1,39 @@
-# Delivery: Better resume_project — generate useful pickup summary
-
-Closes #7
+# DELIVERY — Web Dashboard (closes #9)
 
 ## Plan
 
-Add a `generate_resume_summary()` function that produces a human-readable markdown summary from the last 3 sessions, then wire it into the CLI (`membank resume`) and the MCP `resume_project()` tool.
+Build a Flask web dashboard for Memory Bank with four pages: dashboard, project detail, session detail, and search. Serve on port 8080 with a dark-themed UI using plain HTML+CSS.
 
 ## Changes
 
 | File | Action |
 |------|--------|
-| `src/memory_bank/summarize.py` | **Created** — `generate_resume_summary(project_path, db_path)` |
-| `src/memory_bank/cli.py` | **Modified** — added `membank resume <path>` command |
-| `src/memory_bank/mcp_server.py` | **Modified** — `resume_project()` now includes `summary` field |
-| `tests/test_summarize.py` | **Created** — 8 tests covering all summary sections and edge cases |
-| `DELIVERY.md` | **Created** — this file |
-
-## Summary format
-
-```markdown
-# Resume: /path/to/project
-
-**Last worked:** 2026-01-12
-**What you were doing:** Deploy v2
-
-**Files touched:**
-- deploy.sh
-- config.yml
-
-**Key decisions:**
-- Use blue-green deployment
-
-**Errors encountered:**
-- Timeout on health check
-
-**Recent sessions:**
-- 2026-01-12 — Deploy v2
-- 2026-01-11 — Add tests
-- 2026-01-10 — Fix auth bug
-```
+| `src/memory_bank/web.py` | Created — Flask app factory with 4 routes |
+| `src/memory_bank/templates/base.html` | Created — dark theme layout with nav |
+| `src/memory_bank/templates/dashboard.html` | Created — stats cards + project list |
+| `src/memory_bank/templates/project.html` | Created — sessions list + resume summary |
+| `src/memory_bank/templates/session.html` | Created — messages timeline + artifacts sidebar |
+| `src/memory_bank/templates/search.html` | Created — search box + FTS5 results |
+| `src/memory_bank/cli.py` | Modified — added `membank web` command |
+| `pyproject.toml` | Modified — added `flask>=3.1,<4` dependency |
+| `tests/test_web.py` | Created — 8 tests covering all routes |
 
 ## Testing
 
 ```bash
-pytest -v tests/test_summarize.py   # 8 tests
-pytest -v                           # all 46 tests pass
+pytest -v                    # 54 tests pass (8 new web tests)
+membank web                  # starts on 0.0.0.0:8080
 ```
 
 ## Checklist
 
 - [x] Read CONTRIBUTING.md
-- [x] `pytest` passes (46/46)
-- [x] Conventional commits used
+- [x] Conventional commits
+- [x] `pytest` passes (54/54)
 - [x] No secrets committed
+- [x] Uses existing `db.py` and `summarize.py`
+- [x] Flask added to pyproject.toml
+- [x] CLI command `membank web` added
+- [x] All 5 templates created
+- [x] Dark theme, no external dependencies
 - [x] DELIVERY.md created

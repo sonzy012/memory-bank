@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Memory Bank{% endblock %}
+{% block content %}
+<h1>Dashboard</h1>
+<div class="cards">
+  <div class="card"><div class="num">{{ stats.sessions }}</div><div class="label">Sessions</div></div>
+  <div class="card"><div class="num">{{ stats.messages }}</div><div class="label">Messages</div></div>
+  <div class="card"><div class="num">{{ stats.artifacts }}</div><div class="label">Artifacts</div></div>
+  <div class="card"><div class="num">{{ stats.last_ingestion }}</div><div class="label">Last Ingestion</div></div>
+</div>
+<h2>Projects</h2>
+{% if projects %}
+<table>
+  <tr><th>Name</th><th>Path</th></tr>
+  {% for p in projects %}
+  <tr><td><a href="/projects/{{ p.id }}">{{ p.name }}</a></td><td>{{ p.path }}</td></tr>
+  {% endfor %}
+</table>
+{% else %}
+<p>No projects yet. Run <code>membank ingest</code> first.</p>
+{% endif %}
+{% endblock %}

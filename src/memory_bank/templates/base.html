@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Memory Bank{% endblock %}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,-apple-system,sans-serif;background:#0d1117;color:#c9d1d9;line-height:1.6}
+a{color:#58a6ff;text-decoration:none}a:hover{text-decoration:underline}
+nav{background:#161b22;border-bottom:1px solid #30363d;padding:.75rem 1.5rem;display:flex;gap:1.5rem;align-items:center}
+nav .brand{font-weight:700;font-size:1.1rem;color:#f0f6fc}
+.container{max-width:960px;margin:0 auto;padding:1.5rem}
+h1{font-size:1.5rem;margin-bottom:1rem;color:#f0f6fc}
+h2{font-size:1.2rem;margin:1.5rem 0 .75rem;color:#f0f6fc}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem;margin-bottom:1.5rem}
+.card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:1rem;text-align:center}
+.card .num{font-size:2rem;font-weight:700;color:#58a6ff}
+.card .label{font-size:.85rem;color:#8b949e}
+table{width:100%;border-collapse:collapse;margin-bottom:1rem}
+th,td{text-align:left;padding:.5rem .75rem;border-bottom:1px solid #21262d}
+th{color:#8b949e;font-size:.85rem;font-weight:600}
+.msg{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:.75rem 1rem;margin-bottom:.5rem}
+.msg .meta{font-size:.8rem;color:#8b949e;margin-bottom:.25rem}
+.msg pre{white-space:pre-wrap;word-break:break-word;font-size:.85rem}
+.badge{display:inline-block;padding:.15rem .5rem;border-radius:12px;font-size:.75rem;font-weight:600}
+.badge-file{background:#1f3a2a;color:#3fb950}.badge-command{background:#2a1f3a;color:#bc8cff}
+.badge-decision{background:#3a2f1f;color:#d29922}.badge-error{background:#3a1f1f;color:#f85149}
+.sidebar{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:1rem}
+.search-box{display:flex;gap:.5rem;margin-bottom:1rem}
+.search-box input{flex:1;padding:.5rem .75rem;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;font-size:.9rem}
+.search-box button{padding:.5rem 1rem;background:#238636;border:none;border-radius:6px;color:#fff;cursor:pointer;font-size:.9rem}
+.search-box button:hover{background:#2ea043}
+.summary{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:1rem;white-space:pre-wrap;font-size:.9rem;margin-bottom:1rem}
+.layout{display:grid;grid-template-columns:1fr 280px;gap:1.5rem}
+@media(max-width:700px){.layout{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<nav>
+  <span class="brand">Memory Bank</span>
+  <a href="/">Dashboard</a>
+  <a href="/search">Search</a>
+</nav>
+<div class="container">
+{% block content %}{% endblock %}
+</div>
+</body>
+</html>

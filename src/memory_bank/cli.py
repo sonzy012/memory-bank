@@ -110,6 +110,16 @@ def resume(path):
 
 
 @cli.command()
+@click.option("--host", default="0.0.0.0", help="Host to bind to.")
+@click.option("--port", default=8080, help="Port to listen on.")
+def web(host, port):
+    """Start the web dashboard."""
+    from memory_bank.web import create_app
+    app = create_app(db_path=_db_path())
+    app.run(host=host, port=port)
+
+
+@cli.command()
 @click.argument("path", type=click.Path(exists=True))
 def project(path):
     """Show sessions and context for a project directory."""

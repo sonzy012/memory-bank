@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}{{ project.name }} — Memory Bank{% endblock %}
+{% block content %}
+<h1>{{ project.name }}</h1>
+<p>{{ project.path }}</p>
+<h2>Resume Summary</h2>
+<div class="summary">{{ summary }}</div>
+<h2>Sessions</h2>
+{% if sessions %}
+<table>
+  <tr><th>Title</th><th>Created</th><th>Updated</th></tr>
+  {% for s in sessions %}
+  <tr>
+    <td><a href="/sessions/{{ s.id }}">{{ s.title or s.id[:8] }}</a></td>
+    <td>{{ s.created_at }}</td>
+    <td>{{ s.updated_at }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p>No sessions for this project.</p>
+{% endif %}
+{% endblock %}
