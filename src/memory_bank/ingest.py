@@ -4,12 +4,14 @@ import ast
 import json
 import re
 import subprocess
+import time
 import uuid
 from pathlib import Path
 
 from memory_bank.db import init_db
 
 SESSIONS_DIR = Path.home() / ".kiro" / "sessions" / "cli"
+STALE_LOCK_SECONDS = 3600  # 1 hour
 
 # Patterns for artifact extraction
 FILE_PATH_RE = re.compile(r"(?:/[\w.-]+){2,}")
@@ -132,7 +134,7 @@ def _detect_project(cwd: str | None, conn) -> int | None:
 
 
 def ingest_sessions(
-    sessions_dir: Path = SESSIONS_DIR, db_path=None
+    sessions_dir: Path = SESSIONS_DIR, db_path=None, include_locked: bool = False,
 ) -> dict[str, int]:
     """Ingest all session files. Returns counts of ingested/updated/skipped."""
     from memory_bank.db import DEFAULT_DB_PATH
@@ -153,9 +155,15 @@ def ingest_sessions(
             lock_path = sessions_dir / f"{session_id}.lock"
             jsonl_path = sessions_dir / f"{session_id}.jsonl"
 
-            if lock_path.exists() or not jsonl_path.exists():
+            if not jsonl_path.exists():
                 stats["skipped"] += 1
                 continue
+
+            if lock_path.exists() and not include_locked:
+                lock_age = time.time() - lock_path.stat().st_mtime
+                if lock_age < STALE_LOCK_SECONDS:
+                    stats["skipped"] += 1
+                    continue
 
             try:
                 with open(meta_path) as f:

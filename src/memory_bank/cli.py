@@ -24,12 +24,16 @@ def cli():
     "--sessions-dir", type=click.Path(exists=True), default=None,
     help="Override sessions directory.",
 )
-def ingest(sessions_dir):
+@click.option(
+    "--include-locked", is_flag=True, default=False,
+    help="Ingest ALL locked sessions regardless of lock age.",
+)
+def ingest(sessions_dir, include_locked):
     """Ingest Kiro CLI session files into the database."""
     path = Path(sessions_dir) if sessions_dir else Path(
         os.environ.get("MEMBANK_SESSIONS_DIR", str(SESSIONS_DIR))
     )
-    stats = ingest_sessions(sessions_dir=path, db_path=_db_path())
+    stats = ingest_sessions(sessions_dir=path, db_path=_db_path(), include_locked=include_locked)
     click.echo(
         f"Done: {stats['ingested']} ingested, {stats['updated']} updated, "
         f"{stats['skipped']} skipped."

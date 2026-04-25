@@ -8,6 +8,7 @@ import pytest
 
 from memory_bank.db import init_db
 from memory_bank.ingest import (
+    STALE_LOCK_SECONDS,
     _extract_artifacts,
     _extract_text,
     _is_valid_uuid,
@@ -181,12 +182,37 @@ def test_ingest_basic(mock_run, sessions_dir, db_path):
 
 
 @patch("memory_bank.ingest.subprocess.run")
-def test_ingest_skips_locked(mock_run, sessions_dir, db_path):
+def test_ingest_skips_fresh_locked(mock_run, sessions_dir, db_path):
+    """Sessions with a fresh lock (< 1 hour old) are skipped."""
     mock_run.return_value = type("R", (), {"returncode": 1, "stdout": ""})()
     _write_session(sessions_dir, TEST_UUID, lock=True)
     stats = ingest_sessions(sessions_dir=sessions_dir, db_path=db_path)
     assert stats["skipped"] == 1
     assert stats["ingested"] == 0
+
+
+@patch("memory_bank.ingest.subprocess.run")
+@patch("memory_bank.ingest.time")
+def test_ingest_ingests_stale_locked(mock_time, mock_run, sessions_dir, db_path):
+    """Sessions with a stale lock (>= 1 hour old) are ingested."""
+    mock_run.return_value = type("R", (), {"returncode": 1, "stdout": ""})()
+    _write_session(sessions_dir, TEST_UUID, lock=True)
+    lock_path = sessions_dir / f"{TEST_UUID}.lock"
+    lock_mtime = lock_path.stat().st_mtime
+    mock_time.time.return_value = lock_mtime + STALE_LOCK_SECONDS + 1
+    stats = ingest_sessions(sessions_dir=sessions_dir, db_path=db_path)
+    assert stats["ingested"] == 1
+    assert stats["skipped"] == 0
+
+
+@patch("memory_bank.ingest.subprocess.run")
+def test_ingest_include_locked_forces_ingestion(mock_run, sessions_dir, db_path):
+    """--include-locked ingests even freshly locked sessions."""
+    mock_run.return_value = type("R", (), {"returncode": 1, "stdout": ""})()
+    _write_session(sessions_dir, TEST_UUID, lock=True)
+    stats = ingest_sessions(sessions_dir=sessions_dir, db_path=db_path, include_locked=True)
+    assert stats["ingested"] == 1
+    assert stats["skipped"] == 0
 
 
 @patch("memory_bank.ingest.subprocess.run")
