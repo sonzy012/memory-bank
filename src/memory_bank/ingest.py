@@ -1,8 +1,10 @@
 """Ingestion engine for Memory Bank — reads Kiro CLI session files into SQLite."""
 
+import ast
 import json
 import re
 import subprocess
+import uuid
 from pathlib import Path
 
 from memory_bank.db import init_db
@@ -10,13 +12,38 @@ from memory_bank.db import init_db
 SESSIONS_DIR = Path.home() / ".kiro" / "sessions" / "cli"
 
 # Patterns for artifact extraction
-FILE_PATH_RE = re.compile(r"(?:/[\w./-]+){2,}")
+FILE_PATH_RE = re.compile(r"(?:/[\w.-]+){2,}")
 COMMAND_RE = re.compile(
     r"\b(?:git|npm|pip|docker|make|cargo|pytest|cd|mkdir|rm|cp|mv|cat|grep|find|curl|wget)\s+[^\n]{1,200}"
 )
 ERROR_RE = re.compile(
     r"(?:Error|Exception|Traceback|FAILED|error\[)[\s:][^\n]{1,300}", re.IGNORECASE
 )
+
+
+def _is_valid_uuid(s: str) -> bool:
+    """Check if string is a valid UUID."""
+    try:
+        uuid.UUID(s)
+        return True
+    except ValueError:
+        return False
+
+
+def _parse_data_field(data):
+    """Parse the data field, handling both JSON and Python repr strings."""
+    if isinstance(data, dict):
+        return data
+    if isinstance(data, str):
+        try:
+            parsed = json.loads(data)
+        except (json.JSONDecodeError, TypeError):
+            try:
+                parsed = ast.literal_eval(data)
+            except (ValueError, SyntaxError):
+                return {}
+        return parsed if isinstance(parsed, dict) else {}
+    return {}
 
 
 def _extract_text(content) -> str:
@@ -36,15 +63,43 @@ def _extract_text(content) -> str:
     return ""
 
 
-def _extract_artifacts(text: str) -> list[tuple[str, str]]:
+def _is_real_file_path(path: str) -> bool:
+    """Filter out URL fragments and junk paths."""
+    # Must start with / and have at least one real directory component
+    if not path.startswith("/"):
+        return False
+    parts = [p for p in path.split("/") if p]
+    if len(parts) < 2:
+        return False
+    # Filter URL-like path fragments
+    url_indicators = {"api", "v1", "v2", "v3", "http", "https", "www"}
+    if parts[0].lower() in url_indicators:
+        return False
+    return True
+
+
+def _extract_artifacts(text: str, kind: str = "") -> list[tuple[str, str]]:
     """Extract (type, value) artifact tuples from text."""
     artifacts = []
     for m in FILE_PATH_RE.finditer(text):
-        artifacts.append(("file", m.group()))
-    for m in COMMAND_RE.finditer(text):
-        artifacts.append(("command", m.group().strip()))
+        path = m.group()
+        if _is_real_file_path(path):
+            artifacts.append(("file", path))
+    if kind == "ToolResults":
+        for m in COMMAND_RE.finditer(text):
+            artifacts.append(("command", m.group().strip()))
     for m in ERROR_RE.finditer(text):
         artifacts.append(("error", m.group().strip()))
+    if kind == "Prompt":
+        # Extract first sentence as a decision
+        stripped = text.strip()
+        if stripped:
+            # First sentence: up to first period, newline, or end
+            match = re.match(r"([^.\n]+[.]?)", stripped)
+            if match:
+                decision = match.group(1).strip()
+                if len(decision) > 5:
+                    artifacts.append(("decision", decision))
     return artifacts
 
 
@@ -89,6 +144,12 @@ def ingest_sessions(
     try:
         for meta_path in sorted(sessions_dir.glob("*.json")):
             session_id = meta_path.stem
+
+            # Only process files whose stem is a valid UUID with a matching .jsonl
+            if not _is_valid_uuid(session_id):
+                stats["skipped"] += 1
+                continue
+
             lock_path = sessions_dir / f"{session_id}.lock"
             jsonl_path = sessions_dir / f"{session_id}.jsonl"
 
@@ -143,14 +204,7 @@ def ingest_sessions(
                     kind = turn.get("kind")
                     if kind not in ("Prompt", "AssistantMessage", "ToolResults"):
                         continue
-                    data = turn.get("data", {})
-                    if isinstance(data, str):
-                        try:
-                            data = json.loads(data)
-                        except (json.JSONDecodeError, TypeError):
-                            data = {}
-                    if not isinstance(data, dict):
-                        data = {}
+                    data = _parse_data_field(turn.get("data", {}))
                     text = _extract_text(data.get("content", ""))
                     conn.execute(
                         "INSERT INTO messages (session_id, kind, content, sequence) "
@@ -158,7 +212,7 @@ def ingest_sessions(
                         (sid, kind, text, seq),
                     )
                     seq += 1
-                    for artifact in _extract_artifacts(text):
+                    for artifact in _extract_artifacts(text, kind):
                         all_artifacts.add(artifact)
 
             for atype, avalue in all_artifacts:
