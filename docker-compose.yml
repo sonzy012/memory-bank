@@ -1,0 +1,16 @@
+services:
+  memory-bank:
+    build: .
+    container_name: memory-bank
+    ports:
+      - "8080:8080"
+    volumes:
+      - ~/.kiro/sessions/cli/:/data/sessions:ro
+      - membank-db:/data/db
+    environment:
+      - MEMBANK_DB_PATH=/data/db/membank.db
+      - MEMBANK_SESSIONS_DIR=/data/sessions
+    restart: unless-stopped
+
+volumes:
+  membank-db:

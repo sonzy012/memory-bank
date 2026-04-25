@@ -84,78 +84,91 @@ def ingest_sessions(
 
     conn = init_db(db_path or DEFAULT_DB_PATH)
     stats = {"ingested": 0, "updated": 0, "skipped": 0}
+    project_cache: dict[str, int | None] = {}
 
-    for meta_path in sorted(sessions_dir.glob("*.json")):
-        session_id = meta_path.stem
-        lock_path = sessions_dir / f"{session_id}.lock"
-        jsonl_path = sessions_dir / f"{session_id}.jsonl"
+    try:
+        for meta_path in sorted(sessions_dir.glob("*.json")):
+            session_id = meta_path.stem
+            lock_path = sessions_dir / f"{session_id}.lock"
+            jsonl_path = sessions_dir / f"{session_id}.jsonl"
 
-        if lock_path.exists():
-            stats["skipped"] += 1
-            continue
-        if not jsonl_path.exists():
-            stats["skipped"] += 1
-            continue
-
-        with open(meta_path) as f:
-            meta = json.load(f)
-
-        sid = meta.get("session_id", session_id)
-        existing = conn.execute(
-            "SELECT updated_at FROM sessions WHERE id = ?", (sid,)
-        ).fetchone()
-
-        if existing:
-            if existing["updated_at"] == meta.get("updated_at"):
+            if lock_path.exists() or not jsonl_path.exists():
                 stats["skipped"] += 1
                 continue
-            # Session updated — delete old data and re-ingest
-            conn.execute("DELETE FROM messages WHERE session_id = ?", (sid,))
-            conn.execute("DELETE FROM artifacts WHERE session_id = ?", (sid,))
-            conn.execute("DELETE FROM sessions WHERE id = ?", (sid,))
-            stats["updated"] += 1
-        else:
-            stats["ingested"] += 1
 
-        project_id = _detect_project(meta.get("cwd"), conn)
-        conn.execute(
-            "INSERT INTO sessions (id, cwd, title, created_at, updated_at, project_id) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
-            (sid, meta.get("cwd"), meta.get("title"),
-             meta.get("created_at"), meta.get("updated_at"), project_id),
-        )
+            try:
+                with open(meta_path) as f:
+                    meta = json.load(f)
+            except (json.JSONDecodeError, OSError):
+                stats["skipped"] += 1
+                continue
 
-        all_artifacts: set[tuple[str, str]] = set()
-        seq = 0
-        with open(jsonl_path) as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    turn = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                kind = turn.get("kind")
-                if kind not in ("Prompt", "AssistantMessage", "ToolResults"):
-                    continue
-                text = _extract_text(turn.get("data", {}).get("content", ""))
-                conn.execute(
-                    "INSERT INTO messages (session_id, kind, content, sequence) "
-                    "VALUES (?, ?, ?, ?)",
-                    (sid, kind, text, seq),
-                )
-                seq += 1
-                for artifact in _extract_artifacts(text):
-                    all_artifacts.add(artifact)
+            sid = meta.get("session_id", session_id)
+            existing = conn.execute(
+                "SELECT updated_at FROM sessions WHERE id = ?", (sid,)
+            ).fetchone()
 
-        for atype, avalue in all_artifacts:
+            if existing:
+                if existing["updated_at"] == meta.get("updated_at"):
+                    stats["skipped"] += 1
+                    continue
+                conn.execute("DELETE FROM sessions WHERE id = ?", (sid,))
+                stats["updated"] += 1
+            else:
+                stats["ingested"] += 1
+
+            cwd = meta.get("cwd")
+            if cwd and cwd not in project_cache:
+                project_cache[cwd] = _detect_project(cwd, conn)
+            project_id = project_cache.get(cwd)
+
             conn.execute(
-                "INSERT INTO artifacts (session_id, type, value) VALUES (?, ?, ?)",
-                (sid, atype, avalue),
+                "INSERT INTO sessions (id, cwd, title, created_at, updated_at, project_id) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (sid, cwd, meta.get("title"),
+                 meta.get("created_at"), meta.get("updated_at"), project_id),
             )
 
-        conn.commit()
+            all_artifacts: set[tuple[str, str]] = set()
+            seq = 0
+            with open(jsonl_path) as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        turn = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    kind = turn.get("kind")
+                    if kind not in ("Prompt", "AssistantMessage", "ToolResults"):
+                        continue
+                    data = turn.get("data", {})
+                    if isinstance(data, str):
+                        try:
+                            data = json.loads(data)
+                        except (json.JSONDecodeError, TypeError):
+                            data = {}
+                    if not isinstance(data, dict):
+                        data = {}
+                    text = _extract_text(data.get("content", ""))
+                    conn.execute(
+                        "INSERT INTO messages (session_id, kind, content, sequence) "
+                        "VALUES (?, ?, ?, ?)",
+                        (sid, kind, text, seq),
+                    )
+                    seq += 1
+                    for artifact in _extract_artifacts(text):
+                        all_artifacts.add(artifact)
 
-    conn.close()
+            for atype, avalue in all_artifacts:
+                conn.execute(
+                    "INSERT INTO artifacts (session_id, type, value) VALUES (?, ?, ?)",
+                    (sid, atype, avalue),
+                )
+
+            conn.commit()
+
+    finally:
+        conn.close()
     return stats
