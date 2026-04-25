@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "memory-bank"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = ["click>=8.1,<9"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0,<9"]
+
+[project.scripts]
+membank = "memory_bank.cli:cli"
+
+[tool.setuptools.packages.find]
+where = ["src"]
