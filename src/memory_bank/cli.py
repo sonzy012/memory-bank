@@ -65,6 +65,13 @@ def search(query, limit):
 
 
 @cli.command()
+def serve():
+    """Start the MCP server for Kiro integration."""
+    from memory_bank.mcp_server import mcp
+    mcp.run()
+
+
+@cli.command()
 @click.argument("path", type=click.Path(exists=True))
 def project(path):
     """Show sessions and context for a project directory."""

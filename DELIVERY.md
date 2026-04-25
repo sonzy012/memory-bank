@@ -1,42 +1,33 @@
-# Delivery — DB Schema & Ingestion Engine
+# DELIVERY — MCP Server for Kiro Integration
 
-Closes #1 (DB schema), closes #2 (ingestion engine).
+**Issue:** closes #5
+**Branch:** agent/coder-01/task-operator-20260425-111057
 
 ## Plan
 
-1. Create SQLite + FTS5 schema with tables: projects, sessions, messages, artifacts, messages_fts
-2. Build ingestion engine to read `~/.kiro/sessions/cli/` files
-3. Set up package with pyproject.toml and CLI entry point
+Add an MCP server to Memory Bank so Kiro CLI can query past sessions via the Model Context Protocol. Expose three tools: `search_sessions`, `get_project_context`, and `resume_project`. Add a `membank serve` CLI command to start the server.
 
 ## Changes
 
-| File | Description |
-|------|-------------|
-| `pyproject.toml` | Package config with click dependency |
-| `src/memory_bank/__init__.py` | Package init |
-| `src/memory_bank/db.py` | Schema (4 tables + FTS5 + triggers), `init_db()`, `get_connection()` |
-| `src/memory_bank/ingest.py` | Session ingestion: reads .json/.jsonl, extracts artifacts, deduplicates, detects projects |
-| `src/memory_bank/cli.py` | `membank ingest` CLI command |
-| `tests/test_db.py` | 9 tests — schema creation, FTS5, constraints, triggers |
-| `tests/test_ingest.py` | 11 tests — extraction, ingestion, dedup, locking, project detection |
-| `tests/test_cli.py` | 1 test — CLI command output |
+| File | Action | Description |
+|------|--------|-------------|
+| `src/memory_bank/mcp_server.py` | Created | MCP server with three tools using FastMCP |
+| `src/memory_bank/cli.py` | Modified | Added `serve` command to start MCP server |
+| `pyproject.toml` | Modified | Added `mcp>=1.27.0,<2` dependency |
+| `tests/test_mcp.py` | Created | 8 tests covering all three MCP tools |
+| `DELIVERY.md` | Created | This file |
 
 ## Testing
 
 ```bash
-PYTHONPATH=src python3 -m pytest tests/ -v
-# 20 passed
+pytest tests/ -v          # 28 tests pass (20 existing + 8 new)
+membank serve             # starts MCP server on stdio
 ```
 
 ## Checklist
 
 - [x] Read CONTRIBUTING.md
-- [x] DB schema with FTS5 virtual table and triggers
-- [x] Ingestion reads .json metadata and .jsonl conversation turns
-- [x] Artifact extraction (files, commands, errors)
-- [x] Deduplication by session_id (skip same, update if changed)
-- [x] Skip sessions with .lock files
-- [x] Auto-detect project from cwd + git remote
-- [x] CLI `membank ingest` command
-- [x] pytest passes (20/20)
-- [x] Conventional commits
+- [x] `pytest` passes (28/28)
+- [x] Conventional commit format
+- [x] No secrets in committed files
+- [x] DELIVERY.md created
