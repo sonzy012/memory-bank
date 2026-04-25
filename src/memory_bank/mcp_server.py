@@ -96,6 +96,8 @@ def get_project_context(project_path: str) -> dict:
 @mcp.tool()
 def resume_project(project_path: str) -> dict:
     """Get resumption context for a project: last session summary, files changed, and unfinished work."""
+    from memory_bank.summarize import generate_resume_summary
+
     resolved = str(Path(project_path).resolve())
     conn = _get_conn()
     try:
@@ -125,8 +127,14 @@ def resume_project(project_path: str) -> dict:
 
         last_messages = messages[-5:] if len(messages) > 5 else messages
 
+        env = os.environ.get("MEMBANK_DB_PATH")
+        db_path = Path(env) if env else None
+        from memory_bank.db import DEFAULT_DB_PATH
+        summary = generate_resume_summary(project_path, db_path=db_path or DEFAULT_DB_PATH)
+
         return {
             "project_path": resolved,
+            "summary": summary,
             "last_session": {
                 "id": sid,
                 "title": session["title"],

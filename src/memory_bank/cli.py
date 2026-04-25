@@ -101,6 +101,16 @@ def stats():
 
 @cli.command()
 @click.argument("path", type=click.Path(exists=True))
+def resume(path):
+    """Show a pickup summary for a project directory."""
+    from memory_bank.summarize import generate_resume_summary
+
+    summary = generate_resume_summary(path, db_path=_db_path())
+    click.echo(summary)
+
+
+@cli.command()
+@click.argument("path", type=click.Path(exists=True))
 def project(path):
     """Show sessions and context for a project directory."""
     from memory_bank.db import get_connection

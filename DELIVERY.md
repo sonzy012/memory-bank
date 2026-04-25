@@ -1,44 +1,56 @@
-# DELIVERY — Fix Session Ingestion
+# Delivery: Better resume_project — generate useful pickup summary
 
-**Branch:** agent/coder-01/task-operator-20260425-112126
-**Issues:** closes #8 (fix ingestion skipping sessions), closes #6 (improve artifact extraction)
+Closes #7
 
 ## Plan
 
-1. Fix parsing of Python repr strings in JSONL data fields (198/318 empty messages)
-2. Skip non-UUID `.json` files that don't have matching `.jsonl` (26 skipped sessions)
-3. Improve artifact extraction: commands from ToolResults only, filter junk file paths, add decision extraction
+Add a `generate_resume_summary()` function that produces a human-readable markdown summary from the last 3 sessions, then wire it into the CLI (`membank resume`) and the MCP `resume_project()` tool.
 
 ## Changes
 
-### `src/memory_bank/ingest.py`
-- Added `_parse_data_field()`: tries `json.loads()` first, falls back to `ast.literal_eval()` for Python repr strings
-- Added `_is_valid_uuid()`: validates session file stems are UUIDs before processing
-- Added `_is_real_file_path()`: filters URL fragments and junk from file path extraction
-- Changed `_extract_artifacts()` to accept `kind` parameter:
-  - Commands only extracted from `ToolResults` messages
-  - File paths filtered through `_is_real_file_path()`
-  - Decisions (first sentence) extracted from `Prompt` messages
+| File | Action |
+|------|--------|
+| `src/memory_bank/summarize.py` | **Created** — `generate_resume_summary(project_path, db_path)` |
+| `src/memory_bank/cli.py` | **Modified** — added `membank resume <path>` command |
+| `src/memory_bank/mcp_server.py` | **Modified** — `resume_project()` now includes `summary` field |
+| `tests/test_summarize.py` | **Created** — 8 tests covering all summary sections and edge cases |
+| `DELIVERY.md` | **Created** — this file |
 
-### `tests/test_ingest.py`
-- Added tests for `_parse_data_field` (dict, JSON string, Python repr, invalid)
-- Added test for URL fragment filtering in file paths
-- Added test for command extraction scoped to ToolResults only
-- Added test for decision extraction from Prompts
-- Added test for non-UUID file skipping
-- Added test for Python repr data end-to-end ingestion
-- Updated all session IDs to valid UUIDs
+## Summary format
+
+```markdown
+# Resume: /path/to/project
+
+**Last worked:** 2026-01-12
+**What you were doing:** Deploy v2
+
+**Files touched:**
+- deploy.sh
+- config.yml
+
+**Key decisions:**
+- Use blue-green deployment
+
+**Errors encountered:**
+- Timeout on health check
+
+**Recent sessions:**
+- 2026-01-12 — Deploy v2
+- 2026-01-11 — Add tests
+- 2026-01-10 — Fix auth bug
+```
 
 ## Testing
 
 ```bash
-pytest -v   # 38 passed
+pytest -v tests/test_summarize.py   # 8 tests
+pytest -v                           # all 46 tests pass
 ```
 
 ## Checklist
 
 - [x] Read CONTRIBUTING.md
-- [x] `pytest` passes (38/38)
-- [x] Conventional commit format
+- [x] `pytest` passes (46/46)
+- [x] Conventional commits used
 - [x] No secrets committed
 - [x] DELIVERY.md created
